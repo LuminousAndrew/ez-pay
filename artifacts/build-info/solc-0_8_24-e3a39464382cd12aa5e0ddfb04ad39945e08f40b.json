@@ -1,0 +1,50 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_24-e3a39464382cd12aa5e0ddfb04ad39945e08f40b",
+  "solcVersion": "0.8.24",
+  "solcLongVersion": "0.8.24+commit.e11b9ed9",
+  "compilerType": "solc",
+  "userSourceNameMap": {
+    "contracts/EscrowFactory.sol": "project/contracts/EscrowFactory.sol",
+    "contracts/EzPay.sol": "project/contracts/EzPay.sol",
+    "contracts/EzPayFactory.sol": "project/contracts/EzPayFactory.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "shanghai",
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/EscrowFactory.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24;\r\n\r\nimport \"./EzPay.sol\";\r\n\r\n// We need the interface here too to pull the USDC from your wallet\r\ninterface IERC20Factory {\r\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\r\n}\r\n\r\ncontract EscrowFactory {\r\n    // Official Base Sepolia USDC Address\r\n    address public constant USDC_ADDRESS = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;\r\n    address[] public allEscrows;\r\n\r\n    function createEscrow(address _payee, uint256 _amount) external {\r\n        // 1. Deploy the new EzPay contract with 4 arguments\r\n        EzPay newEscrow = new EzPay(msg.sender, _payee, _amount, USDC_ADDRESS);\r\n        \r\n        // 2. Pull the USDC from YOUR wallet into the NEW Escrow contract\r\n        // This requires you to call 'approve' in the frontend first!\r\n        require(\r\n            IERC20Factory(USDC_ADDRESS).transferFrom(msg.sender, address(newEscrow), _amount),\r\n            \"USDC Transfer Failed\"\r\n        );\r\n\r\n        allEscrows.push(address(newEscrow));\r\n    }\r\n\r\n    function getEscrows() external view returns (address[] memory) {\r\n        return allEscrows;\r\n    }\r\n}"
+      },
+      "project/contracts/EzPay.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24;\r\n\r\ninterface IERC20 {\r\n    function transfer(address to, uint256 amount) external returns (bool);\r\n    function balanceOf(address account) external view returns (uint256);\r\n}\r\n\r\ncontract EzPay {\r\n    address public payer;\r\n    address public payee;\r\n    uint256 public amount;\r\n    bool public isReleased;\r\n    address public tokenAddress;\r\n\r\n    constructor(address _payer, address _payee, uint256 _amount, address _token) {\r\n        payer = _payer;\r\n        payee = _payee;\r\n        amount = _amount;\r\n        tokenAddress = _token;\r\n    }\r\n\r\n    function release() external {\r\n        require(msg.sender == payer, \"Only payer can release\");\r\n        require(!isReleased, \"Already released\");\r\n\r\n        isReleased = true;\r\n        // Transfer the USDC from THIS contract to the PAYEE\r\n        require(IERC20(tokenAddress).transfer(payee, amount), \"Transfer failed\");\r\n    }\r\n}"
+      },
+      "project/contracts/EzPayFactory.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24;\r\n\r\nimport \"./EzPay.sol\";\r\n\r\n// This interface allows the Factory to move USDC\r\ninterface IERC20Factory {\r\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\r\n}\r\n\r\ncontract EscrowFactory {\r\n    // Official Base Sepolia USDC Address\r\n    address public constant USDC_ADDRESS = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;\r\n    address[] public allEscrows;\r\n\r\n    function createEscrow(address _payee, uint256 _amount) external {\r\n        // FIXED: Removed {value: msg.value} and added all 4 arguments\r\n        EzPay newEscrow = new EzPay(msg.sender, _payee, _amount, USDC_ADDRESS);\r\n        \r\n        // Pull the USDC from YOUR wallet into the NEW Escrow contract\r\n        require(\r\n            IERC20Factory(USDC_ADDRESS).transferFrom(msg.sender, address(newEscrow), _amount),\r\n            \"USDC Transfer Failed\"\r\n        );\r\n\r\n        allEscrows.push(address(newEscrow));\r\n    }\r\n\r\n    function getEscrows() external view returns (address[] memory) {\r\n        return allEscrows;\r\n    }\r\n}"
+      }
+    }
+  }
+}
